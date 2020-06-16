@@ -24,6 +24,9 @@
 #error "Please select scalar implementation"
 #endif
 
+static const secp256k1_scalar secp256k1_scalar_one = SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 1);
+static const secp256k1_scalar secp256k1_scalar_zero = SECP256K1_SCALAR_CONST(0, 0, 0, 0, 0, 0, 0, 0);
+
 #ifndef USE_NUM_NONE
 static void secp256k1_scalar_get_num(secp256k1_num *r, const secp256k1_scalar *a) {
     unsigned char c[32];
@@ -51,6 +54,12 @@ static void secp256k1_scalar_order_get_num(secp256k1_num *r) {
     secp256k1_num_set_bin(r, order, 32);
 }
 #endif
+
+static int secp256k1_scalar_set_b32_seckey(secp256k1_scalar *r, const unsigned char *bin) {
+    int overflow;
+    secp256k1_scalar_set_b32(r, bin, &overflow);
+    return (!overflow) & (!secp256k1_scalar_is_zero(r));
+}
 
 static void secp256k1_scalar_inverse(secp256k1_scalar *r, const secp256k1_scalar *x) {
 #if defined(EXHAUSTIVE_TEST_ORDER)

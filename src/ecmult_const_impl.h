@@ -14,16 +14,22 @@
 
 /* This is like `ECMULT_TABLE_GET_GE` but is constant time */
 #define ECMULT_CONST_TABLE_GET_GE(r,pre,n,w) do { \
-    int m; \
-    int abs_n = (n) * (((n) > 0) * 2 - 1); \
-    int idx_n = abs_n / 2; \
+    int m = 0; \
+    /* Extract the sign-bit for a constant time absolute-value. */ \
+    int mask = (n) >> (sizeof(n) * CHAR_BIT - 1); \
+    int abs_n = ((n) + mask) ^ mask; \
+    int idx_n = abs_n >> 1; \
     secp256k1_fe neg_y; \
     VERIFY_CHECK(((n) & 1) == 1); \
     VERIFY_CHECK((n) >= -((1 << ((w)-1)) - 1)); \
     VERIFY_CHECK((n) <=  ((1 << ((w)-1)) - 1)); \
     VERIFY_SETUP(secp256k1_fe_clear(&(r)->x)); \
     VERIFY_SETUP(secp256k1_fe_clear(&(r)->y)); \
-    for (m = 0; m < ECMULT_TABLE_SIZE(w); m++) { \
+    /* Unconditionally set r->x = (pre)[m].x. r->y = (pre)[m].y. because it's either the correct one \
+     * or will get replaced in the later iterations, this is needed to make sure `r` is initialized. */ \
+    (r)->x = (pre)[m].x; \
+    (r)->y = (pre)[m].y; \
+    for (m = 1; m < ECMULT_TABLE_SIZE(w); m++) { \
         /* This loop is used to avoid secret data in array indices. See
          * the comment in ecmult_gen_impl.h for rationale. */ \
         secp256k1_fe_cmov(&(r)->x, &(pre)[m].x, m == idx_n); \
@@ -44,7 +50,7 @@
  *
  *  Adapted from `The Width-w NAF Method Provides Small Memory and Fast Elliptic Scalar
  *  Multiplications Secure against Side Channel Attacks`, Okeya and Tagaki. M. Joye (Ed.)
- *  CT-RSA 2003, LNCS 2612, pp. 328-443, 2003. Springer-Verlagy Berlin Heidelberg 2003
+ *  CT-RSA 2003, LNCS 2612, pp. 328-443, 2003. Springer-Verlag Berlin Heidelberg 2003
  *
  *  Numbers reference steps of `Algorithm SPA-resistant Width-w NAF with Odd Scalar` on pp. 335
  */
@@ -172,6 +178,7 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
         for (i = 0; i < ECMULT_TABLE_SIZE(WINDOW_A); i++) {
             secp256k1_ge_mul_lambda(&pre_a_lam[i], &pre_a[i]);
         }
+
     }
 #endif
 
@@ -195,7 +202,7 @@ static void secp256k1_ecmult_const(secp256k1_gej *r, const secp256k1_ge *a, cons
         int n;
         int j;
         for (j = 0; j < WINDOW_A - 1; ++j) {
-            secp256k1_gej_double_nonzero(r, r, NULL);
+            secp256k1_gej_double_nonzero(r, r);
         }
 
         n = wnaf_1[i];
